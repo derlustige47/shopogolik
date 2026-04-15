@@ -1,14 +1,19 @@
 import os
-from telegram import Bot
-import asyncio
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Шопоголик запущен и работает.\nПиши, что хочешь найти.")
 
 async def main():
-    bot = Bot(token=TOKEN)
-    await bot.send_message(chat_id=CHAT_ID, text="✅ Шопоголик онлайн")
-    print("Сообщение отправлено")
+    app = Application.builder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    
+    print("Бот запущен и ждёт команды...")
+    await app.run_polling()
 
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())
