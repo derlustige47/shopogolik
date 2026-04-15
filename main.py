@@ -1,19 +1,16 @@
 import os
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler
+import asyncio
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Шопоголик запущен и работает.\nПиши, что хочешь найти.")
+async def start(update, context):
+    await update.message.reply_text("✅ Шопоголик запущен и работает\nНапиши, что хочешь найти")
 
-async def main():
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    
-    print("Бот запущен и ждёт команды...")
-    await app.run_polling()
+app = Application.builder().token(TOKEN).build()
+app.add_handler(CommandHandler("start", start))
 
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+print("Бот запущен и готов к работе...")
+
+if __name__ == '__main__':
+    asyncio.run(app.run_polling())
