@@ -6,8 +6,13 @@ from bs4 import BeautifulSoup
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-keyboard = ,
-    [KeyboardButton("Для взрослых +18")], , ]
+# Меню
+keyboard = [
+    [KeyboardButton("Одежда")],
+    [KeyboardButton("Для взрослых +18")],
+    [KeyboardButton("Новинки")],
+    [KeyboardButton("Из Китая")]
+]
 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 async def start(update: Update, context):
