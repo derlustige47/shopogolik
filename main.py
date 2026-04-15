@@ -1,13 +1,25 @@
 import os
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 import requests
 from bs4 import BeautifulSoup
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 
+# Меню с кнопками
+keyboard = [
+    [KeyboardButton("Одежда")],
+    [KeyboardButton("Для взрослых +18")],
+    [KeyboardButton("Новинки")],
+    [KeyboardButton("Из Китая")]
+]
+reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
 async def start(update: Update, context):
-    await update.message.reply_text("Отправь мне, что искать.\nПример:\nRTX 3060\niPhone 13\nAirPods")
+    await update.message.reply_text(
+        "Выбери категорию или напиши свой запрос:",
+        reply_markup=reply_markup
+    )
 
 async def search(update: Update, context):
     query = update.message.text.strip()
@@ -38,3 +50,8 @@ async def search(update: Update, context):
 app = Application.builder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & filters.COMMAND, search))
+
+print("Шопоголик запущен с меню")
+
+if __name__ == "__main__":
+    app.run_polling()
