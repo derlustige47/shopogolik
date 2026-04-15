@@ -19,7 +19,7 @@ async def start(update: Update, context):
 
 async def search(update: Update, context):
     query = update.message.text.strip()
-    await update.message.reply_text(f"Ищу: {query}...")
+    await update.message.reply_text(f"🔍 Ищу: {query}...")
 
     url = f"https://www.avito.ru/all?q={query.replace(' ', '+')}"
     headers = {"User-Agent": "Mozilla/5.0"}
