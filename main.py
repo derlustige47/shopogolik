@@ -1,55 +1,20 @@
-import os
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
-import requests
-from bs4 import BeautifulSoup
+Ты — опытный Python-разработчик, специализирующийся на Telegram-ботах и деплое на Railway.app.
 
-TOKEN = os.getenv("TELEGRAM_TOKEN")
+Создай **полный, минимальный и надёжный** код для Telegram-бота на библиотеке `python-telegram-bot` версии 21+.
 
-# Меню с кнопками
-keyboard = [
-    [KeyboardButton("Одежда")],
-    [KeyboardButton("Для взрослых +18")],
-    [KeyboardButton("Новинки")],
-    [KeyboardButton("Из Китая")]
-]
-reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+Требования:
+- Бот использует **polling** (`app.run_polling()`)
+- Добавь `drop_pending_updates=True` для избежания конфликтов
+- Добавь простое меню с ReplyKeyboardMarkup (4 кнопки: "Одежда", "Для взрослых +18", "Новинки", "Из Китая")
+- На команду /start бот показывает меню
+- На любое текстовое сообщение бот делает поиск по Avito.ru по этому запросу (используй requests + BeautifulSoup)
+- Показывай максимум 5 результатов: название, цену и ссылку
+- Добавь обработку ошибок и понятные сообщения пользователю
+- Используй logging (INFO уровень)
+- TOKEN бери из os.getenv("TELEGRAM_TOKEN")
+- Код должен работать сразу после деплоя на Railway без Custom Start Command (просто python main.py)
+- requirements.txt должен содержать только необходимые пакеты: python-telegram-bot, requests, beautifulsoup4, lxml
 
-async def start(update: Update, context):
-    await update.message.reply_text("👋 Выбери категорию:", reply_markup=reply_markup)
+Напиши **полный main.py** и отдельно **requirements.txt**.
 
-async def search(update: Update, context):
-    query = update.message.text.strip()
-    await update.message.reply_text(f"🔍 Ищу: {query}...")
-
-    url = f"https://www.avito.ru/all?q={query.replace(' ', '+')}"
-    headers = {"User-Agent": "Mozilla/5.0"}
-
-    try:
-        r = requests.get(url, headers=headers, timeout=15)
-        soup = BeautifulSoup(r.text, "html.parser")
-        items = soup.find_all("div", {"data-marker": "item"})[:5]
-
-        if items:
-            for item in items:
-                title = item.find("h3")
-                price = item.find("span", class_="price-text")
-                link = item.find("a")
-                title_text = title.get_text(strip=True) if title else "Без названия"
-                price_text = price.get_text(strip=True) if price else ""
-                link_text = "https://www.avito.ru" + link.get("href") if link else ""
-                await update.message.reply_text(f"{title_text}\n💰 {price_text}\n🔗 {link_text}")
-        else:
-            await update.message.reply_text("Ничего не найдено.")
-    except Exception as e:
-        await update.message.reply_text("Ошибка при поиске, попробуй позже.")
-
-app = Application.builder().token(TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & filters.COMMAND, search))
-
-print("Бот запущен")
-
-if __name__ == "__main__":
-    app.run_polling()
-    
+Сделай код максимально чистым, без лишних запятых, без FastAPI/uvicorn, без webhook.
