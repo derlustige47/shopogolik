@@ -6,43 +6,44 @@ from bs4 import BeautifulSoup
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-# Меню
-keyboard = [
-    [KeyboardButton("Одежда")],
-    [KeyboardButton("Для взрослых +18")],
-    [KeyboardButton("Новинки")],
-    [KeyboardButton("Из Китая")]
-]
+keyboard = ,
+    [KeyboardButton("Для взрослых +18")], , ]
 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 async def start(update: Update, context):
-    await update.message.reply_text("Выбери категорию:", reply_markup=reply_markup)
+    await update.message.reply_text("Выбери категорию или напиши свой запрос:", reply_markup=reply_markup)
 
 async def search(update: Update, context):
     query = update.message.text.strip()
-    await update.message.reply_text(f"🔍 Ищу: {query}...")
+    
+    await update.message.reply_text(f"🔍 Ищу по запросу: {query}...")
 
     url = f"https://www.avito.ru/all?q={query.replace(' ', '+')}"
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
     try:
-        r = requests.get(url, headers=headers, timeout=15)
+        r = requests.get(url, headers=headers, timeout=20)
         soup = BeautifulSoup(r.text, "html.parser")
-        items = soup.find_all("div", {"data-marker": "item"})[:5]
+        
+        items = soup.find_all("div", {"data-marker": "item"})[:6]
 
-        if items:
-            for item in items:
-                title = item.find("h3")
-                price = item.find("span", class_="price-text")
-                link = item.find("a")
-                title_text = title.get_text(strip=True) if title else "Без названия"
-                price_text = price.get_text(strip=True) if price else ""
-                link_text = "https://www.avito.ru" + link.get("href") if link else ""
-                await update.message.reply_text(f"{title_text}\n{price_text}\n{link_text}")
-        else:
-            await update.message.reply_text("Ничего не найдено.")
+        if not items:
+            await update.message.reply_text("😔 Ничего не найдено.")
+            return
+
+        for item in items:
+            title_tag = item.find("h3")
+            price_tag = item.find("span", class_="price-text")
+            link_tag = item.find("a")
+
+            title = title_tag.get_text(strip=True) if title_tag else "Без названия"
+            price = price_tag.get_text(strip=True) if price_tag else "Цена не указана"
+            link = "https://www.avito.ru" + link_tag.get("href") if link_tag else "Ссылка отсутствует"
+
+            await update.message.reply_text(f"{title}\n💰 {price}\n🔗 {link}\n")
+            
     except Exception as e:
-        await update.message.reply_text(f"Ошибка: {str(e)}")
+        await update.message.reply_text(f"❌ Ошибка при поиске: {str(e)}")
 
 app = Application.builder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
