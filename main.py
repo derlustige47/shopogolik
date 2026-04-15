@@ -1,40 +1,54 @@
 import os
-from fastapi import FastAPI, Request
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-import uvicorn
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+import requests
+from bs4 import BeautifulSoup
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-app = FastAPI()
+# Меню
+keyboard = [
+    [KeyboardButton("Одежда")],
+    [KeyboardButton("Для взрослых +18")],
+    [KeyboardButton("Новинки")],
+    [KeyboardButton("Из Китая")]
+]
+reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-# Создаём приложение Telegram
-tg_app = Application.builder().token(TOKEN).build()
+async def start(update: Update, context):
+    await update.message.reply_text("Выбери категорию:", reply_markup=reply_markup)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Бот работает через Webhook!\nНапиши что-нибудь...")
+async def search(update: Update, context):
+    query = update.message.text.strip()
+    await update.message.reply_text(f"🔍 Ищу: {query}...")
 
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"Ты написал: {update.message.text}")
+    url = f"https://www.avito.ru/all?q={query.replace(' ', '+')}"
+    headers = {"User-Agent": "Mozilla/5.0"}
 
-# Добавляем обработчики
-tg_app.add_handler(CommandHandler("start", start))
-tg_app.add_handler(MessageHandler(filters.TEXT & filters.COMMAND, echo))
-
-@app.post("/webhook")
-async def webhook(request: Request):
     try:
-        data = await request.json()
-        update = Update.de_json(data, tg_app.bot)
-        await tg_app.process_update(update)
-        return {"status": "ok"}
-    except Exception as e:
-        print(f"Webhook error: {e}")
-        return {"status": "error"}
+        r = requests.get(url, headers=headers, timeout=15)
+        soup = BeautifulSoup(r.text, "html.parser")
+        items = soup.find_all("div", {"data-marker": "item"})[:5]
 
-@app.get("/")
-async def root():
-    return {"message": "Bot is running with webhook"}
+        if items:
+            for item in items:
+                title = item.find("h3")
+                price = item.find("span", class_="price-text")
+                link = item.find("a")
+                title_text = title.get_text(strip=True) if title else "Без названия"
+                price_text = price.get_text(strip=True) if price else ""
+                link_text = "https://www.avito.ru" + link.get("href") if link else ""
+                await update.message.reply_text(f"{title_text}\n{price_text}\n{link_text}")
+        else:
+            await update.message.reply_text("Ничего не найдено.")
+    except Exception as e:
+        await update.message.reply_text(f"Ошибка: {str(e)}")
+
+app = Application.builder().token(TOKEN).build()
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.TEXT & filters.COMMAND, search))
+
+print("Бот запущен")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+    app.run_polling()
