@@ -1,7 +1,6 @@
 import os
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from telegram import Update
-import asyncio
 import requests
 from bs4 import BeautifulSoup
 
@@ -11,8 +10,6 @@ async def start(update: Update, context):
     await update.message.reply_text("Отправь мне, что искать.\nНапример: RTX 3060 или iPhone 13")
 
 async def search(update: Update, context):
-    if update.message.text.startswith('/'):
-        return
     query = update.message.text.strip()
     await update.message.reply_text(f"🔍 Ищу по запросу: {query}...")
 
@@ -26,24 +23,23 @@ async def search(update: Update, context):
 
         if items:
             for item in items:
-                title_tag = item.find("h3")
-                price_tag = item.find("span", class_="price-text")
-                link_tag = item.find("a")
-                title = title_tag.get_text(strip=True) if title_tag else "Без названия"
-                price = price_tag.get_text(strip=True) if price_tag else ""
-                link = "https://www.avito.ru" + link_tag.get("href") if link_tag else ""
-                await update.message.reply_text(f"{title}\n{price}\n{link}")
+                title = item.find("h3")
+                price = item.find("span", class_="price-text")
+                link = item.find("a")
+                title_text = title.get_text(strip=True) if title else "Без названия"
+                price_text = price.get_text(strip=True) if price else ""
+                link_text = "https://www.avito.ru" + link.get("href") if link else ""
+                await update.message.reply_text(f"{title_text}\n{price_text}\n{link_text}")
         else:
             await update.message.reply_text("Ничего не найдено.")
     except Exception as e:
         await update.message.reply_text(f"Ошибка: {str(e)}")
 
-async def main():
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT, search))
-    print("Шопоголик запущен...")
-    await app.run_polling()
+app = Application.builder().token(TOKEN).build()
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, search))
+
+print("Шопоголик запущен...")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    app.run_polling()
