@@ -8,9 +8,11 @@ from bs4 import BeautifulSoup
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 async def start(update: Update, context):
-    await update.message.reply_text("Отправь мне, что искать.\nНапример:\nRTX 3060\niPhone 13 Москва")
+    await update.message.reply_text("Отправь мне, что искать.\nНапример: RTX 3060 или iPhone 13")
 
 async def search(update: Update, context):
+    if update.message.text.startswith('/'):
+        return
     query = update.message.text.strip()
     await update.message.reply_text(f"🔍 Ищу по запросу: {query}...")
 
@@ -27,25 +29,19 @@ async def search(update: Update, context):
                 title_tag = item.find("h3")
                 price_tag = item.find("span", class_="price-text")
                 link_tag = item.find("a")
-
                 title = title_tag.get_text(strip=True) if title_tag else "Без названия"
                 price = price_tag.get_text(strip=True) if price_tag else ""
                 link = "https://www.avito.ru" + link_tag.get("href") if link_tag else ""
-
-                text = f"{title}\n{price}\n{link}"
-                await update.message.reply_text(text)
+                await update.message.reply_text(f"{title}\n{price}\n{link}")
         else:
-            await update.message.reply_text("Ничего не найдено на Авито.")
+            await update.message.reply_text("Ничего не найдено.")
     except Exception as e:
         await update.message.reply_text(f"Ошибка: {str(e)}")
 
 async def main():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    
-    text_filter = filters.TEXT & \~filters.COMMAND
-    app.add_handler(MessageHandler(text_filter, search))
-    
+    app.add_handler(MessageHandler(filters.TEXT, search))
     print("Шопоголик запущен...")
     await app.run_polling()
 
