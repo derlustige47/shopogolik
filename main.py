@@ -1,13 +1,17 @@
 import os
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from fastapi import FastAPI, Request
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
-import requests
-from bs4 import BeautifulSoup
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+import uvicorn
+import asyncio
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Railway сам даст
 
-# Главное меню категорий
-category_keyboard = [
+app = FastAPI()
+
+# Меню
+keyboard = [
     [KeyboardButton("Одежда")],
     [KeyboardButton("Для взрослых +18")],
     [KeyboardButton("Новинки")],
@@ -15,84 +19,33 @@ category_keyboard = [
     [KeyboardButton("Wildberries")],
     [KeyboardButton("Ozon")]
 ]
-category_markup = ReplyKeyboardMarkup(category_keyboard, resize_keyboard=True)
+reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-# Меню типа товара
-type_keyboard = [
-    [KeyboardButton("Новое")],
-    [KeyboardButton("Б/у")],
-    [KeyboardButton("Все вместе")]
-]
-type_markup = ReplyKeyboardMarkup(type_keyboard, resize_keyboard=True)
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("👋 Выбери категорию:", reply_markup=reply_markup)
 
-async def start(update: Update, context):
-    await update.message.reply_text(
-        "👋 Выбери категорию:",
-        reply_markup=category_markup
-    )
-
-async def handle_message(update: Update, context):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
+    await update.message.reply_text(f"🔍 Ищу по запросу: {text}...")
 
-    # Если это выбор категории
-    if text in ["Одежда", "Для взрослых +18", "Новинки", "Из Китая", "Wildberries", "Ozon"]:
-        context.user_data['category'] = text
-        await update.message.reply_text(
-            f"Выбрано: {text}\nТеперь выбери тип товара:",
-            reply_markup=type_markup
-        )
-        return
+    # Здесь будет логика поиска (пока заглушка)
+    await update.message.reply_text("Пока поиск работает только по Avito.\nСкоро добавлю все площадки.")
 
-    # Если это выбор типа (Новое / Б/у / Все)
-    category = context.user_data.get('category')
-    if not category:
-        await update.message.reply_text("Сначала выбери категорию через /start")
-        return
+# Создаём приложение Telegram
+tg_app = Application.builder().token(TOKEN).build()
+tg_app.add_handler(CommandHandler("start", start))
+tg_app.add_handler(MessageHandler(filters.TEXT & filters.COMMAND, handle_message))
 
-    await update.message.reply_text(f"🔍 Ищу {text} в категории «{category}»...")
+@app.post("/webhook")
+async def webhook(request: Request):
+    data = await request.json()
+    update = Update.de_json(data, tg_app.bot)
+    await tg_app.process_update(update)
+    return {"status": "ok"}
 
-    query = category.lower()
-
-    headers = {"User-Agent": "Mozilla/5.0"}
-
-    try:
-        if text == "Б/у":
-            # Только Avito + б/у
-            url = f"https://www.avito.ru/all?q={query.replace(' ', '+')}&s=1"  # s=1 = б/у
-            platform = "Avito (б/у)"
-        elif text == "Новое":
-            # Все площадки + новые вещи
-            url = f"https://www.avito.ru/all?q={query.replace(' ', '+')}"
-            platform = "Avito + Wildberries + Ozon (новое)"
-        else:
-            # Все вместе
-            url = f"https://www.avito.ru/all?q={query.replace(' ', '+')}"
-            platform = "Avito"
-
-        r = requests.get(url, headers=headers, timeout=15)
-        soup = BeautifulSoup(r.text, "html.parser")
-        items = soup.find_all("div", {"data-marker": "item"})[:5]
-
-        if items:
-            for item in items:
-                title = item.find("h3")
-                price = item.find("span", class_="price-text")
-                link = item.find("a")
-                title_text = title.get_text(strip=True) if title else "Без названия"
-                price_text = price.get_text(strip=True) if price else ""
-                link_text = "https://www.avito.ru" + link.get("href") if link else ""
-                await update.message.reply_text(f"{platform}:\n{title_text}\n{price_text}\n{link_text}")
-        else:
-            await update.message.reply_text("Ничего не найдено.")
-
-    except Exception as e:
-        await update.message.reply_text(f"Ошибка: {str(e)}")
-
-app = Application.builder().token(TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & filters.COMMAND, handle_message))
-
-print("Шопоголик запущен с выбором Новое / Б/у / Все")
+@app.get("/")
+async def root():
+    return {"status": "bot is running with webhook"}
 
 if __name__ == "__main__":
-    app.run_polling()
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
