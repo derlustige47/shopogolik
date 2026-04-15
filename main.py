@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 async def start(update: Update, context):
-    await update.message.reply_text("Отправь мне, что искать.\nНапример: RTX 3060 или iPhone 13")
+    await update.message.reply_text("Отправь мне, что искать.\nПример:\nRTX 3060\niPhone 13\nAirPods")
 
 async def search(update: Update, context):
     query = update.message.text.strip()
@@ -18,7 +18,7 @@ async def search(update: Update, context):
 
     try:
         r = requests.get(url, headers=headers, timeout=15)
-        soup = BeautifulSoup(r.text, "lxml")
+        soup = BeautifulSoup(r.text, "html.parser")
         items = soup.find_all("div", {"data-marker": "item"})[:5]
 
         if items:
@@ -37,9 +37,4 @@ async def search(update: Update, context):
 
 app = Application.builder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search))
-
-print("Шопоголик запущен...")
-
-if __name__ == "__main__":
-    app.run_polling()
+app.add_handler(MessageHandler(filters.TEXT & filters.COMMAND, search))
