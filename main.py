@@ -37,7 +37,7 @@ async def search(update: Update, context):
 
 app = Application.builder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, search))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search))
 
 print("Шопоголик запущен...")
 
