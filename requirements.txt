@@ -1,1 +1,6 @@
-https://api.telegram.org/bot<ТОКЕН>/setWebhook?url=https://<твой-домен>.up.railway.app/webhook
+fastapi==0.115.0
+uvicorn==0.30.6
+python-telegram-bot==21.4
+requests==2.32.3
+beautifulsoup4==4.12.3
+lxml==5.3.0
