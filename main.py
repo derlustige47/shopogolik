@@ -15,7 +15,7 @@ if not TOKEN:
 
 app = FastAPI()
 
-# Инициализация Telegram Application
+# Инициализация и регистрация обработчиков ДО запуска сервера
 tg_app = Application.builder().token(TOKEN).build()
 
 # ================== МЕНЮ ==================
@@ -60,6 +60,8 @@ async def search(update: Update, context):
 # Регистрация обработчиков
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, search))
+
+logger.info("Обработчики зарегистрированы")
 
 # ================== WEBHOOK ==================
 @app.post("/webhook")
