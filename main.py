@@ -2,41 +2,40 @@ import os
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 import requests
 from bs4 import BeautifulSoup
 
-# ================== НАСТРОЙКИ ==================
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 if not TOKEN:
-    raise ValueError("TELEGRAM_TOKEN не найден в переменных окружения")
+    raise ValueError("TELEGRAM_TOKEN не найден!")
 
-# ================== LIFESPAN ==================
+# Lifespan (чтобы правильно запускаться на Railway)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Бот запускается (webhook)")
+    logger.info("Бот запущен (webhook)")
     yield
-    logger.info("Бот останавливается")
+    logger.info("Бот остановлен")
 
-# ================== FASTAPI ==================
 app = FastAPI(lifespan=lifespan)
 
-# Инициализация Telegram Application
+# Инициализация Telegram-приложения
 tg_app = Application.builder().token(TOKEN).build()
 
-# ================== ОБРАБОТЧИКИ ==================
+# ================== МЕНЮ ==================
+keyboard = [
+    [KeyboardButton("Одежда")],
+    [KeyboardButton("Для взрослых +18")],
+    [KeyboardButton("Новинки")],
+    [KeyboardButton("Из Китая")]
+]
+reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
 async def start(update: Update, context):
-    keyboard = [
-        ["Одежда"],
-        ["Для взрослых +18"],
-        ["Новинки"],
-        ["Из Китая"]
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("👋 Выбери категорию:", reply_markup=reply_markup)
 
 async def search(update: Update, context):
@@ -64,11 +63,11 @@ async def search(update: Update, context):
             await update.message.reply_text("Ничего не найдено.")
     except Exception as e:
         logger.error(f"Ошибка поиска: {e}")
-        await update.message.reply_text("Ошибка при поиске, попробуй позже.")
+        await update.message.reply_text("Ошибка поиска, попробуй позже.")
 
 # Регистрация обработчиков
 tg_app.add_handler(CommandHandler("start", start))
-tg_app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, search))
+tg_app.add_handler(MessageHandler(filters.TEXT & filters.COMMAND, search))
 
 # ================== WEBHOOK ==================
 @app.post("/webhook")
@@ -79,15 +78,11 @@ async def webhook(request: Request):
         await tg_app.process_update(update)
         return {"status": "ok"}
     except Exception as e:
-        logger.error(f"Ошибка webhook: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        logger.error(f"Webhook error: {e}")
+        raise HTTPException(status_code=500)
 
-# Health-check
 @app.get("/")
 async def health():
-    return {"status": "ok", "bot": "running"}
+    return {"status": "ok"}
 
-# ================== ЗАПУСК ==================
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+logger.info("Приложение FastAPI готово")
