@@ -1,12 +1,10 @@
 import os
 import logging
-from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 import requests
 from bs4 import BeautifulSoup
-from telegram import ReplyKeyboardMarkup, KeyboardButton
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -15,14 +13,7 @@ TOKEN = os.getenv("TELEGRAM_TOKEN")
 if not TOKEN:
     raise ValueError("TELEGRAM_TOKEN не найден!")
 
-# Lifespan
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    logger.info("Бот запущен (webhook)")
-    yield
-    logger.info("Бот остановлен")
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 # Инициализация Telegram Application
 tg_app = Application.builder().token(TOKEN).build()
@@ -87,3 +78,4 @@ async def health():
     return {"status": "ok"}
 
 logger.info("FastAPI приложение готово")
+logger.info("Бот запущен (webhook)")
