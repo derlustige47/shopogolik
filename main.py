@@ -15,7 +15,9 @@ if not TOKEN:
 
 app = FastAPI()
 
+# Создаём и ИНИЦИАЛИЗИРУЕМ Application
 tg_app = Application.builder().token(TOKEN).build()
+await tg_app.initialize()          # ← Это ключевая строка
 
 # Меню
 keyboard = [
