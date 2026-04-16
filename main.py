@@ -2,10 +2,11 @@ import os
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 import requests
 from bs4 import BeautifulSoup
+from telegram import ReplyKeyboardMarkup, KeyboardButton
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -14,7 +15,7 @@ TOKEN = os.getenv("TELEGRAM_TOKEN")
 if not TOKEN:
     raise ValueError("TELEGRAM_TOKEN не найден!")
 
-# Lifespan (чтобы правильно запускаться на Railway)
+# Lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Бот запущен (webhook)")
@@ -23,7 +24,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# Инициализация Telegram-приложения
+# Инициализация Telegram Application
 tg_app = Application.builder().token(TOKEN).build()
 
 # ================== МЕНЮ ==================
@@ -67,7 +68,7 @@ async def search(update: Update, context):
 
 # Регистрация обработчиков
 tg_app.add_handler(CommandHandler("start", start))
-tg_app.add_handler(MessageHandler(filters.TEXT & filters.COMMAND, search))
+tg_app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, search))
 
 # ================== WEBHOOK ==================
 @app.post("/webhook")
@@ -79,10 +80,10 @@ async def webhook(request: Request):
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Webhook error: {e}")
-        raise HTTPException(status_code=500)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @app.get("/")
 async def health():
     return {"status": "ok"}
 
-logger.info("Приложение FastAPI готово")
+logger.info("FastAPI приложение готово")
