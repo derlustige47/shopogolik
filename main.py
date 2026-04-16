@@ -59,7 +59,7 @@ async def search(update: Update, context):
 
 # Регистрация обработчиков
 tg_app.add_handler(CommandHandler("start", start))
-tg_app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, search))
+tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search))
 
 logger.info("Обработчики зарегистрированы")
 
