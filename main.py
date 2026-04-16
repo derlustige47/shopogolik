@@ -15,7 +15,7 @@ if not TOKEN:
 
 app = FastAPI()
 
-# Инициализация и регистрация обработчиков ДО запуска сервера
+# Создаём Application
 tg_app = Application.builder().token(TOKEN).build()
 
 # ================== МЕНЮ ==================
