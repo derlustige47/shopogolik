@@ -1,103 +1,82 @@
 import os
 import logging
 from fastapi import FastAPI, Request, HTTPException
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from telegram.ext import Dispatcher
 import requests
 from bs4 import BeautifulSoup
-import json
 
-# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Получаем токен Telegram из переменной окружения
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-if not TELEGRAM_TOKEN:
-    raise ValueError("Токен Telegram не задан в окружении")
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+if not TOKEN:
+    raise ValueError("TELEGRAM_TOKEN не найден!")
 
-# Инициализация FastAPI приложения
 app = FastAPI()
 
-# Инициализация Telegram Application (для webhook)
-application = Application.builder().token(TELEGRAM_TOKEN).build()
+tg_app = Application.builder().token(TOKEN).build()
 
-# Функция для создания клавиатуры
-def create_keyboard():
-    keyboard = [
-        ['Одежда', 'Для взрослых +18'],
-        ['Новинки', 'Из Китая']
-    ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+# Меню
+keyboard = [
+    [KeyboardButton("Одежда")],
+    [KeyboardButton("Для взрослых +18")],
+    [KeyboardButton("Новинки")],
+    [KeyboardButton("Из Китая")]
+]
+reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-# Обработчик команды /start
 async def start(update: Update, context):
-    keyboard = create_keyboard()
-    await update.message.reply_text("Привет! Выберите категорию или отправьте запрос для поиска на Avito.", reply_markup=keyboard)
+    await update.message.reply_text("👋 Выбери категорию:", reply_markup=reply_markup)
 
-# Функция поиска на Avito
-def search_avito(query: str):
-    url = f"https://www.avito.ru/search?q={query}&p=1"
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
-    
+async def search(update: Update, context):
+    query = update.message.text.strip()
+    await update.message.reply_text(f"🔍 Ищу: {query}...")
+
+    url = f"https://www.avito.ru/all?q={query.replace(' ', '+')}"
+    headers = {"User-Agent": "Mozilla/5.0"}
+
     try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()  # Проверка на ошибки HTTP
-        soup = BeautifulSoup(response.text, 'lxml')
+        r = requests.get(url, headers=headers, timeout=15)
+        soup = BeautifulSoup(r.text, "html.parser")
+        items = soup.find_all("div", {"data-marker": "item"})[:5]
 
-        items = []
-        for ad in soup.find_all('div', {'class': 'iva-item-content'}):
-            title = ad.find('h3').get_text(strip=True)
-            price = ad.find('span', {'class': 'price'}).get_text(strip=True) if ad.find('span', {'class': 'price'}) else 'Цена не указана'
-            link = 'https://www.avito.ru' + ad.find('a', {'class': 'link'})['href']
-            items.append((title, price, link))
-            if len(items) == 5:
-                break
+        if items:
+            for item in items:
+                title = item.find("h3")
+                price = item.find("span", class_="price-text")
+                link = item.find("a")
+                title_text = title.get_text(strip=True) if title else "Без названия"
+                price_text = price.get_text(strip=True) if price else ""
+                link_text = "https://www.avito.ru" + link.get("href") if link else ""
+                await update.message.reply_text(f"{title_text}\n💰 {price_text}\n🔗 {link_text}")
+        else:
+            await update.message.reply_text("Ничего не найдено.")
+    except Exception as e:
+        logger.error(f"Ошибка поиска: {e}")
+        await update.message.reply_text("Ошибка поиска, попробуй позже.")
 
-        return items
+# Регистрация обработчиков
+tg_app.add_handler(CommandHandler("start", start))
+tg_app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, search))
 
-    except requests.RequestException as e:
-        logger.error(f"Ошибка при запросе к Avito: {e}")
-        return None
+logger.info("Обработчики зарегистрированы")
 
-# Обработчик текстовых сообщений
-async def handle_message(update: Update, context):
-    query = update.message.text
-    items = search_avito(query)
-
-    if items:
-        for title, price, link in items:
-            await update.message.reply_text(f"Название: {title}\nЦена: {price}\nСсылка: {link}")
-    else:
-        await update.message.reply_text("Не удалось найти результаты. Попробуйте позже.")
-
-# Настройка webhook (обработчик входящих обновлений от Telegram)
+# Webhook
 @app.post("/webhook")
 async def webhook(request: Request):
     try:
-        json_str = await request.json()
-        update = Update.de_json(json_str, application.bot)
-        # Обработка полученного обновления
-        Dispatcher(application, update)
-        await application.process_update(update)
+        data = await request.json()
+        update = Update.de_json(data, tg_app.bot)
+        await tg_app.process_update(update)
         return {"status": "ok"}
     except Exception as e:
-        logger.error(f"Ошибка при обработке webhook: {e}")
+        logger.error(f"Webhook error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-# Регистрация обработчиков для команд
-application.add_handler(CommandHandler("start", start))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+@app.get("/")
+async def health():
+    return {"status": "ok"}
 
-# Вызов установки webhook (только после деплоя)
-def set_webhook():
-    webhook_url = os.getenv("WEBHOOK_URL")
-    if not webhook_url:
-        raise ValueError("Не задана переменная окружения WEBHOOK_URL")
-    application.bot.set_webhook(webhook_url)
-
-# Вызов установки webhook (только после деплоя)
-if __name__ == "__main__":
-    set_webhook()
-    logger.info("Бот запущен и webhook установлен")
+logger.info("FastAPI приложение готово")
+logger.info("Бот запущен (webhook)")
